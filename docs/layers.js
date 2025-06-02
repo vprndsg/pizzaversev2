@@ -5,7 +5,9 @@ export const layerNames = [
   "Region",
   "State / AVA",
   "Pizza Style",
-  "Topping"
+  "Topping",
+  "Producer",
+  "Bottle"
 ];
 
 export function colorFor(layer) {
