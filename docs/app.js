@@ -96,14 +96,15 @@ function makeLabel(txt, color = '#fff', size = 12) {
 function buildGraph(rawNodes, rawLinks){
   nodes = rawNodes.map(n => ({
     ...n,
-    category: n.layer <= 3 ? 'wine' : 'pizza',
+    category: n.category || (n.layer <= 3 ? 'wine' : 'pizza'),
     x:(Math.random()-0.5)*100,
     y:(Math.random()-0.5)*100,
     z:(Math.random()-0.5)*100,
     vx:0,vy:0,vz:0,
     mass:1,
     glowSprite:null,
-    glowBaseScale:1
+    glowBaseScale:1,
+    baseScale:1
   }));
   nodeIndex = {};
   nodes.forEach((n,i)=>nodeIndex[n.id]=i);
@@ -121,8 +122,17 @@ function buildGraph(rawNodes, rawLinks){
     }
   });
 
+  // mass and base scale from connection count
+  nodes.forEach(n => {
+    const deg = neighbors[n.id].length;
+    n.mass = 1 + deg * 0.2;
+    n.baseScale = 1 + deg * 0.05;
+  });
+
   counts=getCookieCounts();
-  for(const [id,c] of Object.entries(counts)){ if(nodeIndex[id]!=null) nodes[nodeIndex[id]].mass=1+c;}
+  for(const [id,c] of Object.entries(counts)){
+    if(nodeIndex[id]!=null) nodes[nodeIndex[id]].mass += c;
+  }
 
   nodeGroup.clear();
   lineGroup.clear();
@@ -130,13 +140,21 @@ function buildGraph(rawNodes, rawLinks){
 
   nodes.forEach(n=>{
     n.isImportant = neighbors[n.id].length >= threshold;
-    const baseMat = n.category === 'wine' ? matWine : matPizza;
-    const geometry = n.category === 'wine' ? sphereGeo : diskGeo;
+    let baseMat, geometry;
+    switch(n.category){
+      case 'wine':     baseMat = matWine;     geometry = sphereGeo; break;
+      case 'pizza':    baseMat = matPizza;    geometry = diskGeo;  break;
+      case 'producer': baseMat = matProducer; geometry = sphereGeo; break;
+      case 'bottle':   baseMat = matBottle;   geometry = sphereGeo; break;
+      default:         baseMat = matWine;     geometry = sphereGeo; break;
+    }
     const mesh = new THREE.Mesh(geometry, baseMat.clone());
     mesh.position.set(n.x,n.y,n.z);
     mesh.userData.id=n.id;
     mesh.userData.isNode = true;
     initNodeAnimationProps(mesh);
+    mesh.scale.set(n.baseScale, n.baseScale, n.baseScale);
+    mesh.userData.scaleTarget = n.baseScale;
     nodeGroup.add(mesh);
     pickables.push(mesh);
     n.mesh = mesh;
@@ -146,7 +164,10 @@ function buildGraph(rawNodes, rawLinks){
     n.labelObj = lbl;
     if(neighbors[n.id].length>=threshold){
       const glow=new THREE.Sprite(spriteMat.clone());
-      glow.material.color.set(n.category==='wine'?wineColor:pizzaColor);
+      const color = n.category==='wine' ? wineColor :
+                    n.category==='pizza'? pizzaColor :
+                    n.category==='producer'? producerColor : bottleColor;
+      glow.material.color.set(color);
       const base=8*(1+0.3*(neighbors[n.id].length-1));
       glow.scale.set(base,base,1);
       n.glowSprite=glow; n.glowBaseScale=base;
@@ -182,6 +203,10 @@ const wineColor=new THREE.Color(0x8B0038);
 const pizzaColor=new THREE.Color(0xEFBF4C);
 const matWine  = new THREE.MeshPhongMaterial({ color:wineColor,  transparent:true });
 const matPizza = new THREE.MeshPhongMaterial({ color:pizzaColor, transparent:true });
+const producerColor=new THREE.Color(0x00c080);
+const bottleColor=new THREE.Color(0x3366ff);
+const matProducer = new THREE.MeshPhongMaterial({ color:producerColor, transparent:true });
+const matBottle   = new THREE.MeshPhongMaterial({ color:bottleColor,   transparent:true });
 const sphereGeo=new THREE.SphereGeometry(2.5,16,16);
 sphereGeo.computeBoundingSphere();
 sphereGeo.boundingSphere.radius*=1.4;
@@ -330,7 +355,7 @@ function updateScaleTargets(){
     }else if(currentHover && currentHover.userData.id===n.id){
       target=1.2;
     }
-    setNodeScaleTarget(n.mesh, target);
+    setNodeScaleTarget(n.mesh, target * n.baseScale);
   });
 }
 renderer.domElement.addEventListener('pointermove',e=>{

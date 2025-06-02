@@ -748,5 +748,17 @@
         "id": 150,
         "label": "Clams",
         "layer": 5
+    },
+    {
+        "id": 151,
+        "label": "Test Producer",
+        "layer": 6,
+        "category": "producer"
+    },
+    {
+        "id": 152,
+        "label": "Test Bottle Node",
+        "layer": 6,
+        "category": "bottle"
     }
 ]
