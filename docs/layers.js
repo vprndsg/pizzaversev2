@@ -8,6 +8,7 @@ export const layerNames = [
   "Topping",
   "Producer",
   "Bottle"
+
 ];
 
 export function colorFor(layer) {
